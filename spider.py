@@ -54,7 +54,9 @@ CATEGORY_RULES = [
     (r"^com\.atproto\.admin\.", "admin", ["moderation"]),
     (r"^tools\.ozone\.", "moderation", ["ozone", "tooling"]),
 
-    # Third-party patterns
+    # Third-party patterns — specific apps first
+    (r"^events\.smokesignal\.", "events", ["events"]),
+
     (r"\.feed\.", "social", ["feed"]),
     (r"\.post$", "social", ["content"]),
     (r"\.like$", "social", ["engagement"]),
