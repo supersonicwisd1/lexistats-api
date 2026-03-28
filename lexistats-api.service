@@ -1,0 +1,16 @@
+[Unit]
+Description=Lexistats API
+After=network.target
+
+[Service]
+Type=simple
+User=golda
+WorkingDirectory=/opt/shared/repos/lexistats-api
+ExecStart=/opt/shared/repos/lexistats-api/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8051
+Restart=on-failure
+RestartSec=5
+# Set DATABASE_URL in environment or override file
+# Environment=DATABASE_URL=postgresql://lexistats:PASSWORD@HOST:5432/lexistats
+
+[Install]
+WantedBy=multi-user.target
