@@ -337,10 +337,15 @@ def list_lexicons():
                    t.avg_eps_7d,
                    t.total_events_7d,
                    c.event_count as latest_count,
-                   c.events_per_sec as latest_eps
+                   c.events_per_sec as latest_eps,
+                   m.description,
+                   m.category,
+                   m.domain,
+                   m.unique_users_7d
             FROM trailing_7d t
             LEFT JOIN latest l ON true
             LEFT JOIN lexicon_counts c ON c.sample_id = l.id AND c.nsid = t.nsid
+            LEFT JOIN lexicon_meta m ON m.nsid = t.nsid
             ORDER BY t.avg_eps_7d DESC
         """)
         rows = [decimal_to_float(dict(r)) for r in cur.fetchall()]
