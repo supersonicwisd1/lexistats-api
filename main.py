@@ -324,7 +324,7 @@ def list_lexicons():
             WITH latest AS (
                 SELECT id FROM lexicon_samples ORDER BY ts DESC LIMIT 1
             ),
-            trailing AS (
+            trailing_7d AS (
                 SELECT c.nsid,
                        ROUND(AVG(c.events_per_sec), 2) as avg_eps_7d,
                        SUM(c.event_count) as total_events_7d
@@ -338,7 +338,7 @@ def list_lexicons():
                    t.total_events_7d,
                    c.event_count as latest_count,
                    c.events_per_sec as latest_eps
-            FROM trailing t
+            FROM trailing_7d t
             LEFT JOIN latest l ON true
             LEFT JOIN lexicon_counts c ON c.sample_id = l.id AND c.nsid = t.nsid
             ORDER BY t.avg_eps_7d DESC
@@ -2105,6 +2105,9 @@ FEED_HTML = """\
                 '</div>' +
             '</div>' +
             '<div class="record-detail">' +
+                '<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:4px;">' +
+                    '<button class="btn" style="font-size:0.7em;padding:2px 6px;" onclick="copyJson(this)">Copy</button>' +
+                '</div>' +
                 '<div class="detail-json">' + esc(JSON.stringify(commit.record, null, 2)) + '</div>' +
                 '<div style="margin-top:4px;font-size:0.7em;color:#484f58;">AT URI: <code>' + esc(atUri) + '</code></div>' +
             '</div>';
@@ -2112,8 +2115,11 @@ FEED_HTML = """\
         // Store record data for comment/action use
         el._recordData = commit.record;
 
-        // Click to expand/collapse detail
-        el.addEventListener('click', () => el.classList.toggle('expanded'));
+        // Click to expand/collapse detail — but not when clicking inside the JSON detail
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('.record-detail') || e.target.closest('.record-actions')) return;
+            el.classList.toggle('expanded');
+        });
 
         return el;
     }
@@ -2336,6 +2342,15 @@ FEED_HTML = """\
         // Toggle JSON detail on the parent record
         const record = btn.closest('.record');
         if (record) record.classList.toggle('expanded');
+    }
+
+    function copyJson(btn) {
+        const record = btn.closest('.record');
+        if (!record || !record._recordData) return;
+        const json = JSON.stringify(record._recordData, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            showToast('JSON copied');
+        });
     }
 
     function doPermalink(atUri) {

@@ -296,6 +296,59 @@ def fetch_example_for_nsid(nsid, conn):
     return None
 
 
+# --- Authority DID → lexicon schema from repo ---
+
+def resolve_authority_did(authority):
+    """Resolve an authority (e.g. 'site.standard') to a DID via ATProto handle resolution."""
+    domain = ".".join(reversed(authority.split(".")))
+    try:
+        url = f"https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle={domain}"
+        data = http_get_json(url)
+        did = data.get("did")
+        if not did:
+            return None, None
+        did_doc = resolve_did_doc(did)
+        if did_doc:
+            return did, did_doc
+    except Exception:
+        pass
+    return None, None
+
+
+def fetch_lexicon_from_authority(nsid, authority):
+    """Try to fetch a lexicon schema from the authority's AT repo.
+
+    Schemas live under com.atproto.lexicon.schema collection in the authority's repo.
+    """
+    try:
+        did, did_doc = resolve_authority_did(authority)
+        if not did or not did_doc:
+            return None
+        pds_url = get_pds_url(did_doc)
+        if not pds_url:
+            return None
+
+        # Try to fetch the lexicon schema record from the authority's repo
+        url = f"{pds_url}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=com.atproto.lexicon.schema&rkey={nsid}"
+        data = http_get_json(url)
+        value = data.get("value", {})
+        if not value or not isinstance(value, dict):
+            return None
+
+        main_def = value.get("defs", {}).get("main", {})
+        description = main_def.get("description") or value.get("description", "")
+        schema_type = main_def.get("type", "")
+
+        return {
+            "schema": value,
+            "description": description,
+            "schema_type": schema_type,
+            "did": did,
+        }
+    except Exception:
+        return None
+
+
 # --- GitHub link generation ---
 
 def get_github_url(nsid):
@@ -405,6 +458,18 @@ def spider_schemas(conn, refresh=False):
             if github_url:
                 lexicon_url = github_url
                 print(f"github", end="", flush=True)
+
+            # Source 2b: Authority's AT repo (did:web → PDS → lexicon schema)
+            if not schema_json and authority not in OFFICIAL_AUTHORITIES:
+                auth_schema = fetch_lexicon_from_authority(nsid, authority)
+                if auth_schema:
+                    schema_json = auth_schema["schema"]
+                    description = description or auth_schema["description"]
+                    schema_type = schema_type or auth_schema["schema_type"]
+                    # Build Lexicon Garden URL if we have the DID
+                    if auth_schema.get("did"):
+                        lexicon_url = f"https://lexicon.garden/lexicon/{auth_schema['did']}/{nsid}"
+                    print(f"authority ✓", end="", flush=True)
 
         # Source 3: DID→PDS for example record (if no schema from garden, or always for third-party)
         if not schema_json or authority not in OFFICIAL_AUTHORITIES:
